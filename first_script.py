@@ -116,11 +116,11 @@ texts = ["Начать", "На сегодня", "На завтра", "На эт�
          "Назад", "Указать группу", "Нaйти преподавателя", "Корона в областях",
          "Введите номер группы (Пример ИКБО-16-20):",
          "Выберите действие", 'Введите &quot;Найти (фамилию преподавателя)&quot;', "расписание",
-         'Введите &quot;Корона (название области)&quot;. Пример : &quot;Корона Мурманская&quot;']
+         'Введите &quot;Корона (название области)&quot;. Пример : &quot;Корона Мурманская&quot;', "Завтра воскресенье, пар нет"]
 
 
 def main():
-    global now_time
+    global now_time, id_group
     now_time = datetime.datetime.now()
     choice = False
     prep = False
@@ -133,7 +133,12 @@ def main():
     start = True
     for event in longpoll.listen():
         if event.type == VkEventType.MESSAGE_NEW:
-            print(event.user_id)
+            if str(event.user_id) in id_group.keys():
+                group = id_group[str(event.user_id)]
+                raspisanie_ = findgroup(group)
+
+            else:
+                group = ""
         if now_time.strftime("%H") != datetime.datetime.now().strftime("%H"):
             now_time = datetime.datetime.now()
             schedule()
@@ -201,7 +206,11 @@ def main():
                     random_id=get_random_id(),
                     message='Я запомнил, что ты из группы ' + event.text.upper(),
                 )
+                id_group[str(event.user_id)] = event.text.upper()
                 group = event.text.upper()
+                with open("data/id_group.txt", "w") as g:
+                    g.write(str(event.user_id) + " " + group)
+                    g.close()
             except KeyError:
                 vk.messages.send(
                     user_id=event.user_id,
@@ -608,21 +617,42 @@ def main():
                 message='Неизвестная команда'
             )
 
+"""СОздание директории"""
+path = os.getcwd()
+
+if not os.path.exists(path + "/data"):
+    os.mkdir(path + "/data")
+    os.mkdir(path + "/schedule")
+    os.mkdir(path + "/images")
+
+"""ID of group"""
+if not os.path.exists('data/id_group.txt'):
+    elem = open("data/id_group.txt", "w")
+    elem.close()
+
+with open("data/id_group.txt", 'r') as d:  # открыли файл с данными
+    repl = lambda x: x.replace("\n", "")
+    spl = lambda x: x.split()
+    id_gr = list(map(spl, list(map(repl, d.readlines()))))
+    id_group = {}
+    for elem in id_gr:
+        id_group[elem[0]] = elem[1]
+    d.close()
+
 
 """-------------------------РАСПИСАНИЕ ----------------------"""
 
-
 def schedule(first=False):
     global weather_data, weather_data2, dictanory, proffessors
-    if os.path.exists('data_file.json'):
-        with open('data_file.json', 'r', encoding='utf-8') as f:  # открыли файл с данными
+    if os.path.exists('data/data_file.json'):
+        with open('data/data_file.json', 'r', encoding='utf-8') as f:  # открыли файл с данными
             dictanory = json.load(f)
 
-    if os.path.exists('data_file2.json'):
-        with open('data_file2.json', 'r', encoding='utf-8') as f:  # открыли файл с данными
+    if os.path.exists('data/data_file2.json'):
+        with open('data/data_file2.json', 'r', encoding='utf-8') as f:  # открыли файл с данными
             proffessors = json.load(f)
 
-    if os.path.exists('data_file.json') is False or os.path.exists('data_file2.json') is False or \
+    if os.path.exists('data/data_file.json') is False or os.path.exists('data/data_file2.json') is False or \
             datetime.datetime.now().strftime("%H") != dictanory["time"] or first:
         page = requests.get("https://www.mirea.ru/schedule/")
         soup = BeautifulSoup(page.text, "html.parser")
@@ -633,13 +663,13 @@ def schedule(first=False):
                      findAll("a", class_="uk-link-toggle")[:3]  # получить ссылки
 
         for i in range(0, 3):
-            f = open("file" + str(i + 1) + ".xlsx", "wb")  # открываем файл для записи, в режиме wb
+            f = open("schedule/file" + str(i + 1) + ".xlsx", "wb")  # открываем файл для записи, в режиме wb
             resp = requests.get(result[i]["href"])  # запрос по ссылке
             f.write(resp.content)
         dictanory = {}
         proffessors = {}
         for i in range(1, 4):
-            book = xlrd.open_workbook("file" + str(i) + ".xlsx")  # открытие файла
+            book = xlrd.open_workbook("schedule/file" + str(i) + ".xlsx")  # открытие файла
             sheet = book.sheet_by_index(0)  # первый лист
             num_cols = sheet.ncols  # количество столбцов
             curs = {}
@@ -678,9 +708,9 @@ def schedule(first=False):
             dictanory[i] = curs
 
         dictanory["time"] = datetime.datetime.now().strftime("%H")
-        with open("data_file.json", "w") as write_file:
+        with open("data/data_file.json", "w") as write_file:
             json.dump(dictanory, write_file)
-        with open("data_file2.json", "w") as write_file:
+        with open("data/data_file2.json", "w") as write_file:
             json.dump(proffessors, write_file)
 
         weather_data = requests.get(
@@ -690,6 +720,8 @@ def schedule(first=False):
         weather_data2 = requests.get(
             "https://api.openweathermap.org/data/2.5/onecall?lat=55.75&lon=37.61&exclude=minutely,alerts&lang=ru&appid=36f9b85e46915ee4d7d3313bf14d0641"). \
             json()
+
+
 
 
 schedule(True)
@@ -716,25 +748,25 @@ spisofdays = ["понедельник", "вторник", "среду", "чет�
 if os.path.exists("file" + str(weather_data['weather'][0]['icon']) + ".png") is False:
     image = requests.get("http://openweathermap.org/img/w/" + str(weather_data['weather'][0]['icon']) + ".png",
                          stream=True)
-    with open("file" + str(weather_data['weather'][0]['icon']) + ".png", "wb") as f:
+    with open("images/file" + str(weather_data['weather'][0]['icon']) + ".png", "wb") as f:
         f.write(image.content)
 
 for i in weather_data2['daily']:
-    if os.path.exists("file" + str(i['weather'][0]['icon']) + ".png") is False:
+    if os.path.exists("images/file" + str(i['weather'][0]['icon']) + ".png") is False:
         image = requests.get("http://openweathermap.org/img/w/" + str(i['weather'][0]['icon']) + ".png", stream=True)
-        with open("file" + str(i['weather'][0]['icon']) + ".png", "wb") as f:
+        with open("images/file" + str(i['weather'][0]['icon']) + ".png", "wb") as f:
             f.write(image.content)
 
 for i in weather_data2["hourly"]:
-    if os.path.exists("file" + str(i['weather'][0]['icon']) + ".png") is False:
+    if os.path.exists("images/file" + str(i['weather'][0]['icon']) + ".png") is False:
         image = requests.get("http://openweathermap.org/img/w/" + str(i['weather'][0]['icon']) + ".png", stream=True)
-        with open("file" + str(i['weather'][0]['icon']) + ".png", "wb") as f:
+        with open("images/file" + str(i['weather'][0]['icon']) + ".png", "wb") as f:
             f.write(image.content)
 
 
 def photo(vk_session):
     upload = VkUpload(vk_session)
-    photo = upload.photo_messages("file" + weather_data["weather"][0]["icon"] + ".png")[0]
+    photo = upload.photo_messages("images/file" + weather_data["weather"][0]["icon"] + ".png")[0]
     owner_id = photo['owner_id']
     photo_id = photo['id']
     access_key = photo['access_key']
@@ -751,14 +783,14 @@ def phototoday(vk_session, k=0):
         img = Image.new('RGB', (4 * 50, 50))
     kk = 0
     for i in range(colv * k, len(weather_data2['hourly']), 6):
-        img1 = Image.open("file" + weather_data2['hourly'][i]["weather"][0]["icon"] + ".png")
+        img1 = Image.open("images/file" + weather_data2['hourly'][i]["weather"][0]["icon"] + ".png")
         img.paste(img1, (kk, 0))
         kk += 50
         if kk == colv // 6 * 50:
             break
-    img.save("new_image.png")
+    img.save("images/new_image.png")
 
-    photo = upload.photo_messages("new_image.png")[0]
+    photo = upload.photo_messages("images/new_image.png")[0]
     owner_id = photo['owner_id']
     photo_id = photo['id']
     access_key = photo['access_key']
@@ -770,14 +802,14 @@ def photos(vk_session):
     img = Image.new('RGB', (5 * 50, 50))
     kk = 0
     for i in weather_data2['daily']:
-        img1 = Image.open("file" + i["weather"][0]["icon"] + ".png")
+        img1 = Image.open("images/file" + i["weather"][0]["icon"] + ".png")
         img.paste(img1, (kk, 0))
         kk += 50
         if kk == 250:
             break
-    img.save("new_image.png")
+    img.save("images/new_image.png")
 
-    photo = upload.photo_messages("new_image.png")[0]
+    photo = upload.photo_messages("images/new_image.png")[0]
     owner_id = photo['owner_id']
     photo_id = photo['id']
     access_key = photo['access_key']
@@ -807,7 +839,7 @@ def print_graph(array):
     for ax in fig.axes:
         matplotlib.pyplot.sca(ax)
         plt.xticks(rotation=23)
-    fig.savefig('corona.png')
+    fig.savefig('images/corona.png')
 
 
 def coronavirus():
@@ -831,7 +863,7 @@ def coronavirus():
             days[str(dat[0])] = activ
         print_graph(days)
         upload = VkUpload(vk_session)
-        photo = upload.photo_messages("corona.png")[0]
+        photo = upload.photo_messages("images/corona.png")[0]
         owner_id = photo['owner_id']
         photo_id = photo['id']
         access_key = photo['access_key']
