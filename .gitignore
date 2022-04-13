@@ -1,7 +1,20 @@
+# Игнорировать папки, созданные PyCharm
 .idea
 
+# Игнорировать __pycache__
+__pycache__
+
+# Игнорировать venv
+venv
+
+# Игнорировать изображения
 **/*.png
-**/*.xlsx
 **/*.jpg
+
+# Игнорировать файлы хранения
+**/*.xlsx
 **/*.json
 **/*.txt
+
+# Оставить файл requirements.txt
+!requirements.txt
