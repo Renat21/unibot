@@ -1,1 +1,1 @@
-worker: python first_script.py
+worker: python ./src/main.py
