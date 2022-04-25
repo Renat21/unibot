@@ -18,5 +18,5 @@ xlrd==1.1.0
 1. С помощью интерпретатора `python`
    1. Переходим в директорию проекта `cd unibot`
    2. Устанавливаем зависимости `pip install -r requirements.txt`
-   3. Выполняем команду `python ./src/main.py`
+   3. Выполняем команду `python first_script.py`
 2. С помощью Heroku `heroku ps:scale worker=1`
