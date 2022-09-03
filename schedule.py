@@ -26,7 +26,7 @@ def dotext(dict):
 
 def findgroup(text):
     global dictanory
-    return dictanory[int((datetime.datetime.now()).strftime("%Y")) % 100 - int(text.split("-")[-1])][text]
+    return dictanory[1 + int((datetime.datetime.now()).strftime("%Y")) % 100 - int(text.split("-")[-1])][text]
 
 
 def findproffesor(string):
@@ -78,12 +78,10 @@ def schedule(first=False):
     if os.path.exists('data/data_file.json') is False or os.path.exists('data/data_file2.json') is False or \
             datetime.datetime.now().strftime("%H") != dictanory["time"] or first:
         page = requests.get("https://www.mirea.ru/schedule/")
+
         soup = BeautifulSoup(page.text, "html.parser")
-        result = soup.find("div", {"class": "rasspisanie"}). \
-                     find(string="Институт информационных технологий"). \
-                     find_parent("div"). \
-                     find_parent("div"). \
-                     findAll("a", class_="uk-link-toggle")[:3]  # получить ссылки
+        result = soup.find(string="Институт информационных технологий").find_parent("div"). \
+                     find_parent("div").findAll("a", class_="uk-link-toggle")[:3]  # получить ссылки
 
         for i in range(0, 3):
             f = open("schedule/file" + str(i + 1) + ".xlsx", "wb")  # открываем файл для записи, в режиме wb
@@ -93,41 +91,43 @@ def schedule(first=False):
         proffessors = {}
         for i in range(1, 4):
             book = xlrd.open_workbook("schedule/file" + str(i) + ".xlsx")  # открытие файла
-            sheet = book.sheet_by_index(0)  # первый лист
-            num_cols = sheet.ncols  # количество столбцов
             curs = {}
-            for group in range(5, num_cols - 1, 5):  # группы
-                groupdict = {}
-                for chet in range(2):
-                    chetdict = {}
-                    for week in range(6):
-                        weekdict = {}
-                        for subject in range(6):
-                            if clean(sheet.cell(week * 12 + subject * 2 + 3 + chet, group + 2).value):
-                                array = clean(sheet.cell(week * 12 + subject * 2 + 3 + chet, group + 2).value)
-                                for pre in array:
-                                    if pre not in proffessors.keys() and pre not in " \n":
-                                        proffessors[pre] = par()
-                                for pre in array:
-                                    if pre not in " \n":
-                                        proffessors[pre][str(chet)][str(week)][str(subject)] = \
-                                            str(sheet.cell(week * 12 + subject * 2 + 3 + chet, group).value) + " ,  " + \
-                                            str(sheet.cell(week * 12 + subject * 2 + 3 + chet,
-                                                           group + 1).value) + " ,  " + \
-                                            str(sheet.cell(1, group).value) + " ,  " + \
-                                            str(sheet.cell(week * 12 + subject * 2 + 3 + chet, group + 3).value)
-                            weekdict[str(subject)] = str(
-                                sheet.cell(week * 12 + subject * 2 + 3 + chet, group).value) + " ,  " \
-                                                     + str(
-                                sheet.cell(week * 12 + subject * 2 + 3 + chet, group + 1).value) + " ,  " \
-                                                     + str(
-                                sheet.cell(week * 12 + subject * 2 + 3 + chet, group + 2).value) + " ,  " \
-                                                     + str(
-                                sheet.cell(week * 12 + subject * 2 + 3 + chet, group + 3).value)
+            for num_sheet in range(len(book.sheets())):
+                sheet = book.sheet_by_index(num_sheet)  # первый лист
+                num_cols = sheet.ncols  # количество столбцов
 
-                        chetdict[str(week)] = weekdict
-                    groupdict[str(chet)] = chetdict
-                curs[sheet.cell(1, group).value] = groupdict
+                for group in range(5, num_cols - 1, 5):  # группы
+                    groupdict = {}
+                    for chet in range(2):
+                        chetdict = {}
+                        for week in range(6):
+                            weekdict = {}
+                            for subject in range(6):
+                                if clean(sheet.cell(week * 12 + subject * 2 + 3 + chet, group + 2).value):
+                                    array = clean(sheet.cell(week * 12 + subject * 2 + 3 + chet, group + 2).value)
+                                    for pre in array:
+                                        if pre not in proffessors.keys() and pre not in " \n":
+                                            proffessors[pre] = par()
+                                    for pre in array:
+                                        if pre not in " \n":
+                                            proffessors[pre][str(chet)][str(week)][str(subject)] = \
+                                                str(sheet.cell(week * 12 + subject * 2 + 3 + chet, group).value) + " ,  " + \
+                                                str(sheet.cell(week * 12 + subject * 2 + 3 + chet,
+                                                               group + 1).value) + " ,  " + \
+                                                str(sheet.cell(1, group).value) + " ,  " + \
+                                                str(sheet.cell(week * 12 + subject * 2 + 3 + chet, group + 3).value)
+                                weekdict[str(subject)] = str(
+                                    sheet.cell(week * 12 + subject * 2 + 3 + chet, group).value) + " ,  " \
+                                                         + str(
+                                    sheet.cell(week * 12 + subject * 2 + 3 + chet, group + 1).value) + " ,  " \
+                                                         + str(
+                                    sheet.cell(week * 12 + subject * 2 + 3 + chet, group + 2).value) + " ,  " \
+                                                         + str(
+                                    sheet.cell(week * 12 + subject * 2 + 3 + chet, group + 3).value)
+
+                            chetdict[str(week)] = weekdict
+                        groupdict[str(chet)] = chetdict
+                    curs[sheet.cell(1, group).value] = groupdict
             dictanory[i] = curs
         dictanory["time"] = datetime.datetime.now().strftime("%H")
         with open("data/data_file.json", "w") as write_file:
